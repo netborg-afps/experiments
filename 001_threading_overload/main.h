@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <atomic>
 #include <iostream>
+#include <latch>
 
 
 /*
@@ -22,10 +23,17 @@ namespace _001 {
     static std::atomic< int32_t > numThreadsRunning = { 0 };
     static std::atomic< int64_t > curIndex = { 0 };
 
+    static std::latch allThreadsStarted (NUM_THREADS);
+    static std::latch allThreadsFinished (NUM_THREADS);
 
     void threadLoop( int threadId ) {
 
         numThreadsRunning++;
+        allThreadsStarted.count_down();
+
+        // commented out because it doesn't seem to start all threads instantly
+        //      allThreadsStarted.arrive_and_wait();
+
         while( numThreadsRunning != NUM_THREADS )
             { }
 
@@ -37,6 +45,7 @@ namespace _001 {
         }
 
         numThreadsRunning--;
+        allThreadsFinished.count_down();
 
     }
 
@@ -62,14 +71,12 @@ namespace _001 {
             threads[i] = new std::thread( &threadLoop, i );
         }
 
-        while (numThreadsRunning != NUM_THREADS)
-            { }
+        allThreadsStarted.wait();
 
         // start benchmark
         time_point_t start = now();
 
-        while (curIndex < NUM_DATA)
-            { }
+        allThreadsFinished.wait();
 
         time_point_t end = now();
         int64_t milliseconds = duration( start, end ) / 1000;
