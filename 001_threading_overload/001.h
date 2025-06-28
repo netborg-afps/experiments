@@ -16,26 +16,30 @@
 
 namespace _001 {
 
+    static Benchmark benchmark("001_results.txt");
     static constexpr int NUM_THREADS = 128;
     static constexpr int64_t NUM_DATA = 1'000'000;
 
-    static std::array< uint32_t, NUM_DATA > data;
+    static std::array< int32_t, NUM_DATA > data;
     static std::atomic< int32_t > numThreadsRunning = { 0 };
     static std::atomic< int64_t > curIndex = { 0 };
 
-    static std::latch allThreadsStarted (NUM_THREADS);
-    static std::latch allThreadsFinished (NUM_THREADS);
+    static std::unique_ptr<std::latch> allThreadsStarted;
+    static std::unique_ptr<std::latch> allThreadsFinished;
+
 
     void threadLoop( int threadId ) {
 
         numThreadsRunning++;
-        allThreadsStarted.count_down();
+        allThreadsStarted->count_down();
 
         // commented out because it doesn't seem to start all threads instantly
-        //      allThreadsStarted.arrive_and_wait();
+        //      allThreadsStarted->arrive_and_wait();
 
-        while( numThreadsRunning != NUM_THREADS )
+        while (numThreadsRunning != NUM_THREADS)
             { }
+
+        benchmark.start();
 
         int64_t index;
         while (index = curIndex.load(), index<NUM_DATA) {
@@ -45,43 +49,48 @@ namespace _001 {
         }
 
         numThreadsRunning--;
-        allThreadsFinished.count_down();
+        allThreadsFinished->count_down();
 
     }
 
 
     void prepareData() {
 
-        std::srand(1);
         for( int32_t i=0; i<NUM_DATA; ++i )
             data[i] = std::rand() % NUM_THREADS;
 
     }
 
 
-    int main() {
+    void run( const char* benchName ) {
 
-        std::cout << "threading overload benchmark started" << std::endl;
-        std::cout << "  using " << NUM_THREADS << " threads with "
-            << NUM_DATA << " data elements " << std::endl;
+        if (curIndex == 0) {
+            std::srand(1);
+            std::cout << "threading overload benchmark started" << std::endl;
+            std::cout << "  using " << NUM_THREADS << " threads with "
+                << NUM_DATA << " data elements " << std::endl;
+        }
 
+        allThreadsStarted = std::make_unique<std::latch>(NUM_THREADS);
+        allThreadsFinished = std::make_unique<std::latch>(NUM_THREADS);
+
+        numThreadsRunning.store( 0 );
+        curIndex.store( 0 );
+
+        benchmark.reset(benchName);
         prepareData();
+
         std::thread** threads = new std::thread*[NUM_THREADS];
         for (int i=0; i<NUM_THREADS; ++i) {
             threads[i] = new std::thread( &threadLoop, i );
         }
 
-        allThreadsStarted.wait();
+        allThreadsStarted->wait();
+        benchmark.start();
 
-        // start benchmark
-        time_point_t start = now();
-
-        allThreadsFinished.wait();
-
-        time_point_t end = now();
-        int64_t milliseconds = duration( start, end ) / 1000;
-
-        std::cout << "benchmark finished in " << milliseconds << " ms " << std::endl;
+        allThreadsFinished->wait();
+        benchmark.finish();
+        benchmark.writeSingleResult();
 
         for (int i=0; i<NUM_THREADS; ++i) {
             threads[i]->join();
@@ -90,7 +99,12 @@ namespace _001 {
 
         delete[] threads;
 
-        return 0;
+    }
+
+
+    void finish() {
+
+        benchmark.writeResultStats();
 
     }
 

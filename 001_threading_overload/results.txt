@@ -1,12 +1,39 @@
 
 Ryzen 5950x
 128 threads, 1'000'000 elements, compiled with -O2
-The first (and second) run was a bit slower most of the time, thus they're ignored
 Results are in seconds
+
+default arch eevdf:         3.229, 3.238, 3.208
+6.15.3-273-tkg-eevdf:       3.250, 3.177, 3.207
+6.15.3-273-tkg-bore:        3.417, 3.392, 3.419
+6.15.4-2-cachyos-bore:      3.247, 3.206, 3.162
+6.15.4-2-cachyos-bore-lto:  2.665, 2.738, 2.666
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -------------------------------------------------------------------------------
 
-25/06/27
+Below are some results from 25/06/27, which have some issues, the new results
+are more useful.
+
+
 commit 07625f71219bb86ee227040910722e45c0bbb36c
 
 16C/32T in startx (probably the most reliable benchmark):
